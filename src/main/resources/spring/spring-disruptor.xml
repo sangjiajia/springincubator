@@ -1,0 +1,57 @@
+﻿<?xml version="1.0" encoding="UTF-8"?>
+<beans xmlns="http://www.springframework.org/schema/beans"
+	xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns:context="http://www.springframework.org/schema/context"
+	xmlns:util="http://www.springframework.org/schema/util" xmlns:p="http://www.springframework.org/schema/p"
+	xmlns:mvc="http://www.springframework.org/schema/mvc"
+	xsi:schemaLocation="http://www.springframework.org/schema/beans http://www.springframework.org/schema/beans/spring-beans-3.2.xsd
+		http://www.springframework.org/schema/context http://www.springframework.org/schema/context/spring-context-3.2.xsd
+		http://www.springframework.org/schema/util http://www.springframework.org/schema/util/spring-util-3.2.xsd
+		http://www.springframework.org/schema/mvc http://www.springframework.org/schema/mvc/spring-mvc-3.2.xsd
+		">
+
+	<bean id="memberRequestEventFactory" class="com.baozun.incubator.disruptor.CreateOrderRequestEventFactory">
+	</bean>
+
+	<bean id="secondTimeUnit" class="org.springframework.beans.factory.config.FieldRetrievingFactoryBean">
+   		<property name="staticField" value="java.util.concurrent.TimeUnit.SECONDS" />
+	</bean>
+	
+	<bean id="liteTimeoutBlockingWaitStrategy" class="com.lmax.disruptor.LiteTimeoutBlockingWaitStrategy">
+		<constructor-arg name="timeout" value="10"  />
+		<constructor-arg name="units" ref="secondTimeUnit" />
+	</bean>
+
+
+	<bean id="disruptorTaskExecutor"
+		class="org.springframework.scheduling.concurrent.ThreadPoolTaskExecutor">
+		<property name="corePoolSize" value="3" />
+		<property name="maxPoolSize" value="3" />
+	</bean>
+
+	<bean id="MULTI"
+		class="org.springframework.beans.factory.config.FieldRetrievingFactoryBean">
+		<property name="staticField" value="com.lmax.disruptor.dsl.ProducerType.MULTI" />
+	</bean>
+
+	<bean id="disruptor" class="com.lmax.disruptor.dsl.Disruptor">
+		<constructor-arg name="eventFactory" ref="memberRequestEventFactory" />
+		<constructor-arg name="ringBufferSize" value="2" />
+		<constructor-arg name="executor" ref="disruptorTaskExecutor" />
+		<constructor-arg name="producerType" ref="MULTI" />
+		<constructor-arg name="waitStrategy" ref="liteTimeoutBlockingWaitStrategy" />
+	</bean>
+	
+	<bean id="orderCreateRequestEventProducerWithTranslator" class="com.baozun.incubator.disruptor.OrderCreateRequestEventProducerWithTranslator">
+		<constructor-arg name="disruptor" ref="disruptor" />
+	</bean>
+	
+	<bean id="createOrderRequestHandler" class="com.baozun.incubator.disruptor.CreateOrderRequestHandler">
+	</bean>
+	
+	<bean id="orderCreateReqDisruptorManager"
+		class="com.baozun.incubator.disruptor.OrderCreateReqDisruptorManagerImpl">
+		<property name="disruptor" ref="disruptor" />
+		<property name="memTranslator" ref="orderCreateRequestEventProducerWithTranslator"/>
+		<property name="workhandler" ref="createOrderRequestHandler"/>
+	</bean>
+</beans>
